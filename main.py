@@ -45,7 +45,6 @@ class PromptBuilder:
         return ", ".join(items) if items else "None provided"
 
     @staticmethod
-    @staticmethod
     def resume_prompt(user: User, target_job_title: str):
         skills_str = PromptBuilder._list_to_str(user.skills)
         experiences_str = PromptBuilder._list_to_str(user.experiences)
@@ -159,19 +158,7 @@ def clean_resume_text(text: str) -> str:
 
 
 
-# PDF GENERATOR (professional design)
-
-from fpdf import FPDF
-import textwrap
-
-from fpdf import FPDF
-import textwrap
-
-
 # PDF GENERATOR (professional design with Unicode support)
-
-from fpdf import FPDF
-import textwrap
 
 class ResumePDF(FPDF):
     def __init__(self):
@@ -199,7 +186,8 @@ class ResumePDF(FPDF):
             font = 'DejaVu' if self.use_unicode else 'Helvetica'
             self.set_font(font, "", 11)
             self.set_text_color(90, 90, 90)
-            self.multi_cell(0, 6, self.contact, align="C")
+            contact = self.contact if self.use_unicode else self.contact.replace("•", "|")
+            self.multi_cell(0, 6, contact, align="C")
             self.ln(6)
 
         # Thin line under header
@@ -235,6 +223,7 @@ class ResumePDF(FPDF):
         """Render bullet points with indentation."""
         font = 'DejaVu' if self.use_unicode else 'Helvetica'
         self.set_font(font, "", 11)
+        self.set_text_color(20, 20, 20)
         
         # Use bullet or hyphen depending on font support
         bullet = "• " if self.use_unicode else "- "
@@ -243,18 +232,21 @@ class ResumePDF(FPDF):
         self.multi_cell(0, 6, f"{bullet}{wrapped}")
         self.ln(2)
 
-    # Compatibility alias
-    def bullet(self, text):
-        self
-
 def save_text_as_pdf(text: str, filename: str):
     """Save resume text as a professional-looking PDF."""
     pdf = ResumePDF()
-    pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
 
+    # header() runs when a page is added, so name/contact must be set first
     pdf.name = ""
     pdf.contact = ""
+    for line in text.splitlines():
+        line = line.strip()
+        if not pdf.name and line.upper().startswith("NAME:"):
+            pdf.name = line[len("NAME:"):].strip()
+        elif not pdf.contact and line.upper().startswith("CONTACT:"):
+            pdf.contact = line[len("CONTACT:"):].strip()
+    pdf.add_page()
 
     section_titles = [
         "PROFESSIONAL SUMMARY", "SKILLS", "EXPERIENCE",
@@ -267,12 +259,8 @@ def save_text_as_pdf(text: str, filename: str):
         if not line:
             continue
 
-        # Detect name/contact
-        if not pdf.name and line.upper().startswith("NAME:"):
-            pdf.name = line.replace("NAME:", "").strip()
-            continue
-        if not pdf.contact and line.upper().startswith("CONTACT:"):
-            pdf.contact = line.replace("CONTACT:", "").strip()
+        # Name/contact were consumed above for the header
+        if line.upper().startswith(("NAME:", "CONTACT:")):
             continue
 
         # Section headers
